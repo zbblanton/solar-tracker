@@ -1,6 +1,7 @@
 import machine
 import network
 import time
+import json
 from servo import Servo
 from umqtt.simple import MQTTClient
 from machine import RTC
@@ -98,7 +99,7 @@ wlan.active(True)
 check_wifi(wlan)
 
 # Setup MQTT
-mqtt = MQTTClient("umqtt_client", "192.168.0.217")
+mqtt = MQTTClient("umqtt_client", "10.0.0.21")
 mqtt.set_callback(mqtt_callback)
 mqtt.connect()
 mqtt.subscribe(b"solar/controlunit/1/reset")
@@ -116,22 +117,19 @@ Timer(mode=Timer.PERIODIC, period=60000, callback=check_wifi_callback)
 # Main Loop
 while True:
     # Solar Voltage Measurement
-    solar_voltage = solar_voltage_pin.read_u16() * conversion_factor * 2 + 0.033
-    mqtt.publish(b"solar/controlunit/1/status/supply-voltage", str(solar_voltage))
-    ##print(solar_voltage)
+    solar_voltage =  round(solar_voltage_pin.read_u16() * conversion_factor * 2 + 0.033, 2)
     
     # Battery Voltage Measurement
-    battery_voltage = battery_voltage_pin.read_u16() * conversion_factor * 2 + 0.033
-    mqtt.publish(b"solar/controlunit/1/status/battery-voltage", str(battery_voltage))
-    #print(battery_voltage)
+    battery_voltage =  round(battery_voltage_pin.read_u16() * conversion_factor * 2 + 0.033, 2)
     
     # Internal Temp
-    internal_temp = read_internal_temp_sensor()
-    mqtt.publish(b"solar/controlunit/1/status/internal-temp", str(internal_temp))
-    #print(internal_temp)
+    internal_temp =  round(read_internal_temp_sensor())
+    
+    # Publish status
+    status = {"supply-voltage": solar_voltage,"battery-voltage":  battery_voltage,"internal_temp": internal_temp,"position":  last_position}
+    mqtt.publish(b"solar/controlunit/1/status", json.dumps(status))
     
     # Check for new subscribed messages
     mqtt.check_msg()
     
     time.sleep(10)
-
